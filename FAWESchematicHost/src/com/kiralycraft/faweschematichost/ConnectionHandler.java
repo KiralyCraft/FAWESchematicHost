@@ -288,7 +288,7 @@ public class ConnectionHandler extends Thread implements Runnable
 				lastBytesQueue.add(byteRead);
 			}
 		}
-		
+		//TODO this writes the last boundary to the file,after it's finished though it does not seem to complain
 		
 		if (writeResult)
 		{
