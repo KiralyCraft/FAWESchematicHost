@@ -358,7 +358,7 @@ public class ConnectionHandler extends Thread implements Runnable
 	private void writeHeaders(File toSend) throws IOException 
 	{
 		os.write(new String("HTTP/1.1 200 OK\r\n").getBytes());
-		os.write(new String("Content-Type: image\r\n").getBytes());
+		os.write(new String("Content-Type: application/gzip\r\n").getBytes());
 		os.write(new String("Connection: close\r\n").getBytes());
 		os.write(new String("Content-Disposition: inline; filename=\""+toSend.getName()+".schematic\"\r\n").getBytes());
 		os.write(new String("Content-Length: "+toSend.length()+"\r\n").getBytes());

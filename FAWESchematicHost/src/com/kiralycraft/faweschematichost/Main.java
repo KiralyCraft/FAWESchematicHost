@@ -11,7 +11,14 @@ public class Main {
 		{
 			theFolder = args[0];
 		}
-		HostingServer hs = new HostingServer(25532,new File(theFolder));
+		
+		int port = 25532;
+		if (args.length >= 2)
+		{
+			port = Integer.parseInt(args[1]);
+		}
+		
+		HostingServer hs = new HostingServer(port,new File(theFolder));
 		hs.start();
 	}
 
