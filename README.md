@@ -26,4 +26,4 @@ If your FAWESchematicHost is running on the same physical machine as your Minecr
 ```java -jar FAWESchematicHost.jar schematics 25532```
 
 # NOTE
-This a a one-day proof of concept. 
+This a a one-day proof of concept. Tested with FAWE 1.13.2 build 170, FastAsyncWorldEdit-bukkit-19.11.13-5505943-1282-22.3.5
