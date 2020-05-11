@@ -1,10 +1,8 @@
 package com.kiralycraft.faweschematichost;
 
 import java.io.BufferedInputStream;
-import java.io.BufferedOutputStream;
 import java.io.File;
 import java.io.FileInputStream;
-import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
@@ -25,21 +23,23 @@ public class ConnectionHandler extends Thread implements Runnable
 {
 	private enum ActionType
 	{
-		UNKNOWN,UPLOAD,DOWNLOAD
+		UNKNOWN,UPLOAD,DOWNLOAD,FETCH,RAW
 	}
 	private class Action
 	{
 		private String fileID;
 		private ActionType actionType;
+		public String fileType;
 	}
 	
 	private Socket connection;
 	private File baseFolder;
 	private InputStream is;
 	private OutputStream os;
-	
 	private Pattern postPattern = Pattern.compile("POST \\/upload\\.php\\?([a-f0-9]{8}(?:-[a-f0-9]{4}){4}[a-f0-9]{8}) HTTP\\/");
-	private Pattern getPattern = Pattern.compile("GET \\/\\?key=([a-f0-9]{8}(?:-[a-f0-9]{4}){4}[a-f0-9]{8})&type=schematic HTTP\\/");
+	private Pattern getPattern = Pattern.compile("GET \\/\\?key=([a-f0-9]{8}(?:-[a-f0-9]{4}){4}[a-f0-9]{8})&type=([a-zA-Z0-9]+) HTTP\\/");
+	private Pattern getFromFAWEPattern = Pattern.compile("GET \\/uploads\\/([a-f0-9]{8}(?:-[a-f0-9]{4}){4}[a-f0-9]{8})\\.([a-zA-Z0-9]+) HTTP\\/");
+	private Pattern getRawPattern = Pattern.compile("GET / HTTP/1.1");
 	private Pattern headerPattern = Pattern.compile("(.*): (.*)");
 	
 	private final String boundaryDefine = "boundary=";
@@ -74,9 +74,13 @@ public class ConnectionHandler extends Thread implements Runnable
 				{
 					handleUploadFile(action.fileID,headerData);
 				}
-				else if (action.actionType.equals(ActionType.DOWNLOAD))
+				else if (action.actionType.equals(ActionType.DOWNLOAD) || action.actionType.equals(ActionType.FETCH))
 				{
-					handleDownloadFile(action.fileID);
+					handleDownloadFile(action.fileID,action.fileType);
+				}
+				else if (action.actionType.equals(ActionType.RAW))
+				{
+					writeStaticPage(StaticFieldz.UPLOADPAGE);
 				}
 			}
 		}
@@ -97,19 +101,19 @@ public class ConnectionHandler extends Thread implements Runnable
 			}
 		}
 	}
-	private void handleDownloadFile(String fileID) throws IOException 
+	private void handleDownloadFile(String fileID, String fileType) throws IOException 
 	{
 		File theFile = new File(baseFolder,fileID);
 		if (theFile.exists())
 		{
 			log("Serving and deleting file ID "+fileID+" to Client "+connection.getInetAddress().getHostAddress()+".");
-			writeHeaders(theFile);
+			writeHeaders(theFile,fileType);
 			writeFile(theFile);
 			theFile.delete();
 		}
 		else
 		{
-			writeInvalidFile();
+			writeStaticPage(StaticFieldz.MISSING_PAGE64);
 			log("Unable to serve file ID "+fileID+" to Client "+connection.getInetAddress().getHostAddress()+" because it does not exist!");
 		}
 		os.close();
@@ -338,6 +342,23 @@ public class ConnectionHandler extends Thread implements Runnable
 			toReturn = new Action();
 			toReturn.actionType = ActionType.DOWNLOAD;
 			toReturn.fileID = tempMatcher.group(1);
+			toReturn.fileType = tempMatcher.group(2);
+			return toReturn;
+		}
+		
+		if ((tempMatcher = getFromFAWEPattern.matcher(readSoFar)).find())
+		{
+			toReturn = new Action();
+			toReturn.actionType = ActionType.FETCH;
+			toReturn.fileID = tempMatcher.group(1);
+			toReturn.fileType = tempMatcher.group(2);
+			return toReturn;
+		}
+		
+		if ((tempMatcher = getRawPattern.matcher(readSoFar)).find())
+		{
+			toReturn = new Action();
+			toReturn.actionType = ActionType.RAW;
 			return toReturn;
 		}
 		
@@ -355,12 +376,12 @@ public class ConnectionHandler extends Thread implements Runnable
 		os.write(new String("<").getBytes());
 		os.flush();
 	}
-	private void writeHeaders(File toSend) throws IOException 
+	private void writeHeaders(File toSend, String fileType) throws IOException 
 	{
 		os.write(new String("HTTP/1.1 200 OK\r\n").getBytes());
 		os.write(new String("Content-Type: application/gzip\r\n").getBytes());
 		os.write(new String("Connection: close\r\n").getBytes());
-		os.write(new String("Content-Disposition: inline; filename=\""+toSend.getName()+".schematic\"\r\n").getBytes());
+		os.write(new String("Content-Disposition: inline; filename=\""+toSend.getName()+"."+fileType+"\"\r\n").getBytes());
 		os.write(new String("Content-Length: "+toSend.length()+"\r\n").getBytes());
 		os.write(new String("\r\n").getBytes());
 	}
@@ -376,9 +397,9 @@ public class ConnectionHandler extends Thread implements Runnable
 		dis.close();
 		os.flush();
 	}
-	private void writeInvalidFile() throws IOException
+	private void writeStaticPage(String base64Page) throws IOException
 	{
-		byte[] webpage = Base64.getDecoder().decode(StaticFieldz.MISSING_PAGE64);
+		byte[] webpage = Base64.getDecoder().decode(base64Page);
 		os.write(new String("HTTP/1.1 200 OK\r\n").getBytes());
 		os.write(new String("Content-Type: text/html\r\n").getBytes());
 		os.write(new String("Connection: close\r\n").getBytes());
