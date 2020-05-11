@@ -74,6 +74,10 @@ public class ConnectionHandler extends Thread implements Runnable
 				{
 					handleUploadFile(action.fileID,headerData);
 				}
+				else if (action.actionType.equals(ActionType.DOWNLOAD))
+				{
+					handleDownloadFile(action.fileID);
+				}
 			}
 		}
 		catch(Exception e)
@@ -93,6 +97,24 @@ public class ConnectionHandler extends Thread implements Runnable
 			}
 		}
 	}
+	private void handleDownloadFile(String fileID) throws IOException 
+	{
+		File theFile = new File(baseFolder,fileID);
+		if (theFile.exists())
+		{
+			log("Serving and deleting file ID "+fileID+" to Client "+connection.getInetAddress().getHostAddress()+".");
+			writeHeaders(theFile);
+			writeFile(theFile);
+			theFile.delete();
+		}
+		else
+		{
+			writeInvalidFile();
+			log("Unable to serve file ID "+fileID+" to Client "+connection.getInetAddress().getHostAddress()+" because it does not exist!");
+		}
+		os.close();
+	}
+
 	private HashMap<String, HashSet<String>> getHeaderFormatData(String readSoFar) 
 	{
 		String[] rowData = readSoFar.split("\\r\\n");
@@ -333,36 +355,36 @@ public class ConnectionHandler extends Thread implements Runnable
 		os.write(new String("<").getBytes());
 		os.flush();
 	}
-	private void writeHeaders(BufferedOutputStream bos2, File toSend) throws IOException 
+	private void writeHeaders(File toSend) throws IOException 
 	{
-		bos2.write(new String("HTTP/1.1 200 OK\r\n").getBytes());
-		bos2.write(new String("Content-Type: image\r\n").getBytes());
-		bos2.write(new String("Connection: close\r\n").getBytes());
-		bos2.write(new String("Content-Length: "+toSend.length()+"\r\n").getBytes());
-		bos2.write(new String("\r\n").getBytes());
+		os.write(new String("HTTP/1.1 200 OK\r\n").getBytes());
+		os.write(new String("Content-Type: image\r\n").getBytes());
+		os.write(new String("Connection: close\r\n").getBytes());
+		os.write(new String("Content-Disposition: inline; filename=\""+toSend.getName()+".schematic\"\r\n").getBytes());
+		os.write(new String("Content-Length: "+toSend.length()+"\r\n").getBytes());
+		os.write(new String("\r\n").getBytes());
 	}
-	private void writeFile(BufferedOutputStream bos2, File toSend) throws IOException
+	private void writeFile(File toSend) throws IOException
 	{
 		int len;
 		byte fileBuf[] = new byte[4096];
 		BufferedInputStream dis = new BufferedInputStream(new FileInputStream(toSend));
 		while ((len = dis.read(fileBuf))>=0)
 		{
-			bos2.write(fileBuf, 0, len);
+			os.write(fileBuf, 0, len);
 		}
 		dis.close();
-		bos2.close();
+		os.flush();
 	}
-	private void writeInvalidFile(BufferedOutputStream bos2) throws IOException
+	private void writeInvalidFile() throws IOException
 	{
 		byte[] webpage = Base64.getDecoder().decode(StaticFieldz.MISSING_PAGE64);
-		bos2.write(new String("HTTP/1.1 200 OK\r\n").getBytes());
-		bos2.write(new String("Content-Type: text/html\r\n").getBytes());
-		bos2.write(new String("Connection: close\r\n").getBytes());
-		bos2.write(new String("Content-Length: "+webpage.length+"\r\n").getBytes());
-		bos2.write(new String("\r\n").getBytes());
-		bos2.write(webpage);
-		bos2.close();
+		os.write(new String("HTTP/1.1 200 OK\r\n").getBytes());
+		os.write(new String("Content-Type: text/html\r\n").getBytes());
+		os.write(new String("Connection: close\r\n").getBytes());
+		os.write(new String("Content-Length: "+webpage.length+"\r\n").getBytes());
+		os.write(new String("\r\n").getBytes());
+		os.write(webpage);
 	}
 	
 	public static void log(String s)

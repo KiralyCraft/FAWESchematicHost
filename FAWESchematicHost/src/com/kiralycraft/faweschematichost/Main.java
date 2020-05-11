@@ -6,7 +6,12 @@ public class Main {
 
 	public static void main(String[] args) 
 	{
-		HostingServer hs = new HostingServer(25532,new File("."));
+		String theFolder = ".";
+		if (args.length >= 1)
+		{
+			theFolder = args[0];
+		}
+		HostingServer hs = new HostingServer(25532,new File(theFolder));
 		hs.start();
 	}
 
